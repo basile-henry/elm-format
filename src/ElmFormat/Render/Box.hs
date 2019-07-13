@@ -253,25 +253,17 @@ formatModuleHeader elmVersion modu =
               '(':a:b:')':[] -> AST.Variable.OpRef (SymbolIdentifier $ a:b:[])
               s -> AST.Variable.VarRef [] (LowercaseIdentifier s)
 
-      definedVars :: Set (AST.Commented AST.Variable.Value)
-      definedVars =
-          AST.Module.body modu
-              |> concatMap extractVarName
-              |> fmap (\x -> AST.Commented [] x [])
-              |> Set.fromList
-
       AST.KeywordCommented _ _ exportsList =
           AST.Module.exports header
 
-      detailedListingToSet :: Set (AST.Commented AST.Variable.Value) -> AST.Variable.Listing AST.Module.DetailedListing -> Set (AST.Commented AST.Variable.Value)
-      detailedListingToSet allAvailable (AST.Variable.OpenListing _) = allAvailable
-      detailedListingToSet _ AST.Variable.ClosedListing = Set.empty
-      detailedListingToSet _ (AST.Variable.ExplicitListing (AST.Module.DetailedListing values operators types) _) =
+      detailedListingToSet :: AST.Variable.Listing AST.Module.DetailedListing -> Set (AST.Commented AST.Variable.Value)
+      detailedListingToSet (AST.Variable.ExplicitListing (AST.Module.DetailedListing values operators types) _) =
           Set.unions
               [ Map.assocs values |> fmap (\(name, AST.Commented pre () post) -> AST.Commented pre (AST.Variable.Value name) post) |> Set.fromList
               , Map.assocs operators |> fmap (\(name, AST.Commented pre () post) -> AST.Commented pre (AST.Variable.OpValue name) post) |> Set.fromList
               , Map.assocs types |> fmap (\(name, AST.Commented pre (preListing, listing) post) -> AST.Commented pre (AST.Variable.Union (name, preListing) listing) post) |> Set.fromList
               ]
+      detailedListingToSet _ = Set.empty
 
       detailedListingIsMultiline :: AST.Variable.Listing a -> Bool
       detailedListingIsMultiline (AST.Variable.ExplicitListing _ isMultiline) = isMultiline
@@ -280,7 +272,7 @@ formatModuleHeader elmVersion modu =
       varsToExpose =
           sortVars
               (detailedListingIsMultiline exportsList)
-              (detailedListingToSet definedVars exportsList)
+              (detailedListingToSet exportsList)
               documentedVars
 
       extractVarName :: TopLevelStructure Declaration -> [AST.Variable.Value]
